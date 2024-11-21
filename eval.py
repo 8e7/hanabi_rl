@@ -22,8 +22,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
     'algorithm': PPO,
-    'model_path': 'models/PPO_fix',
-    'model_2_path': 'models/PPO'
+    'model_path': 'models/test.zip',
+    'model_2_path': 'models/test.zip'
 }
 env_config = {
     "colors":                   5,
@@ -32,7 +32,9 @@ env_config = {
     "hand_size":                5,
     "max_information_tokens":   8,
     "max_life_tokens":          3,
-    "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value
+    "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
+    "record_episodes":          True,
+    "episodes_file":            "./episodes/test/episodes.txt"
 }
 
 def visualize(model_list):
@@ -149,8 +151,8 @@ if __name__ == "__main__":
 
     
     model = model_config['algorithm'].load(model_config['model_path'])
-    if model_config['model_2_path']:
-        model_2 = model_config['algorithm'].load(model_config['model_2_path'])
-        evaluate([model, model_2], env, eval_num=100, vis=True)
+    if model_config['model_2_path'] is None:
+        model_2 = model_config['algorithm'].load(model_config['model_path'])
     else:
-        evaluate([model], env, eval_num=100, vis=True)
+        model_2 = model_config['algorithm'].load(model_config['model_2_path'])
+    evaluate([model, model_2], env, eval_num=10, vis=False)
