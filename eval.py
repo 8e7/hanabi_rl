@@ -22,7 +22,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
     'algorithm': PPO,
-    'model_path': 'models/PPO'
+    'model_path': 'models/PPO_fix',
+    'model_2_path': 'models/PPO'
 }
 env_config = {
     "colors":                   5,
@@ -34,7 +35,7 @@ env_config = {
     "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value
 }
 
-def visualize(model):
+def visualize(model_list):
     """Play a game using model. 2 players."""
 
     def print_state(state):
@@ -107,8 +108,7 @@ def visualize(model):
         obs = obs_encoder.encode(observation)
 
         legal_moves = state.legal_moves()
-        #print("Number of legal moves: {}".format(len(legal_moves)))
-        action, _state = model.predict(obs, deterministic=True)
+        action, _state = model_list[state.cur_player()].predict(obs, deterministic=True)
         action = action % len(legal_moves)
         print("Chose move: {}".format(legal_moves[action]))
         state.apply_move(legal_moves[action])
@@ -120,25 +120,37 @@ def visualize(model):
     print("")
     print("score: {}".format(state.score()))
    
-def evaluate(model, env, eval_num=100, vis=False):
+def evaluate(model_list, env, eval_num=100, vis=False):
+    
+    if len(model_list) != env_config["players"]:
+        print(f"Length of model_list is not equal to {env_config['players']}")
+        model_list = model_list[:env_config["players"]]
+        model_list.extend([model_list[-1]] * (env_config["players"] - len(model_list)))
+
     tot_score = 0
     for iteration in range(eval_num):
         done = False
-        # Set seed and reset env using Gymnasium API
         obs, info = env.reset(seed=random.randint(0, 100000000))
         while not done:
-            # Interact with env using Gymnasium API
-            action, _state = model.predict(obs, deterministic=True)
+            player = env.unwrapped.state.cur_player()
+            action, _state = model_list[player].predict(obs, deterministic=True)
             obs, reward, done, _, info = env.step(action)
-        score = env.state.score()
+        score = env.unwrapped.state.score()
         tot_score += score
-    print(f"Average score: {tot_score / eval_num}")
 
     if vis:
-        visualize(model)
+        visualize(model_list)
+    print(f"Average score: {tot_score / eval_num}")
     return tot_score / eval_num
+
+
 if __name__ == "__main__":
     env = gym.make('hanabi-eval', config=env_config)
 
+    
     model = model_config['algorithm'].load(model_config['model_path'])
-    evaluate(model, env, eval_num=100, vis=True)
+    if model_config['model_2_path']:
+        model_2 = model_config['algorithm'].load(model_config['model_2_path'])
+        evaluate([model, model_2], env, eval_num=100, vis=True)
+    else:
+        evaluate([model], env, eval_num=100, vis=True)

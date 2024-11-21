@@ -16,6 +16,8 @@ class HanabiEnvWrapper(HanabiEnv, gym.Env):
         self.action_space = spaces.Discrete(self.game.max_moves())
 
         self.seed()
+        self.illegal_move_reward = -1
+        self.invalid_cnt = 0
     
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -30,12 +32,20 @@ class HanabiEnvWrapper(HanabiEnv, gym.Env):
     def step(self, action):
         # action is a integer from 0 to self.action_space
         # we map it to one of the legal moves
-        # the legal move array may be too small in some cases, so just modulo action by the array length
         legal_moves = self.state.legal_moves()
-        move = legal_moves[action % len(legal_moves)].to_dict()
-
-        obs, reward, done, info = super().step(move)
+        legal_moves_int = [self.game.get_move_uid(move) for move in legal_moves]
+            
+        reward = 0
+        move = int(action)
+        if action not in legal_moves_int:
+            move = legal_moves_int[0]
+            #reward = self.illegal_move_reward
+            #self.invalid_cnt += 1
+        obs, r, done, info = super().step(move)
+        reward += r
         obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
 
         truncate = False
+        #if self.invalid_cnt >= 3:
+        #    done = True
         return obs, reward, done, truncate, info
