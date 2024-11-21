@@ -22,7 +22,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
     'algorithm': PPO,
-    'model_path': 'models/PPO'
+    'model_path': 'models/PPO_fix',
+    'model_2_path': 'models/PPO'
 }
 env_config = {
     "colors":                   5,
@@ -131,20 +132,25 @@ def evaluate(model_list, env, eval_num=100, vis=False):
         done = False
         obs, info = env.reset(seed=random.randint(0, 100000000))
         while not done:
-            player = env.state.cur_player()
+            player = env.unwrapped.state.cur_player()
             action, _state = model_list[player].predict(obs, deterministic=True)
             obs, reward, done, _, info = env.step(action)
-        score = env.state.score()
+        score = env.unwrapped.state.score()
         tot_score += score
-    print(f"Average score: {tot_score / eval_num}")
 
     if vis:
         visualize(model_list)
+    print(f"Average score: {tot_score / eval_num}")
     return tot_score / eval_num
 
 
 if __name__ == "__main__":
     env = gym.make('hanabi-eval', config=env_config)
 
+    
     model = model_config['algorithm'].load(model_config['model_path'])
-    evaluate(model, env, eval_num=100, vis=True)
+    if model_config['model_2_path']:
+        model_2 = model_config['algorithm'].load(model_config['model_2_path'])
+        evaluate([model, model_2], env, eval_num=100, vis=True)
+    else:
+        evaluate([model], env, eval_num=100, vis=True)

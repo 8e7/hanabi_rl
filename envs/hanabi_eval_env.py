@@ -32,7 +32,11 @@ class HanabiEvalEnv(HanabiEnv, gym.Env):
         # we map it to one of the legal moves
         # the legal move array may be too small in some cases, so just modulo action by the array length
         legal_moves = self.state.legal_moves()
-        move = legal_moves[action % len(legal_moves)].to_dict()
+        legal_moves_int = [self.game.get_move_uid(move) for move in legal_moves]
+            
+        move = int(action)
+        if action not in legal_moves_int:
+            move = legal_moves_int[0]
 
         obs, reward, done, info = super().step(move)
         obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
