@@ -108,12 +108,16 @@ def visualize(model_list):
         #print_observation(observation)
         #print_encoded_observations(obs_encoder, state, game.num_players())
         obs = obs_encoder.encode(observation)
+        action, _state = model_list[state.cur_player()].predict(obs, deterministic=True)
 
         legal_moves = state.legal_moves()
-        action, _state = model_list[state.cur_player()].predict(obs, deterministic=True)
-        action = action % len(legal_moves)
-        print("Chose move: {}".format(legal_moves[action]))
-        state.apply_move(legal_moves[action])
+        legal_moves_int = [game.get_move_uid(move) for move in legal_moves]
+            
+        move = int(action)
+        if action not in legal_moves_int:
+            move = legal_moves_int[0]
+        print("Chose move: {}".format(legal_moves[legal_moves_int.index(move)]))
+        state.apply_move(legal_moves[legal_moves_int.index(move)])
 
     print("")
     print(bcolors.BOLD + "Game done. Terminal state:" + bcolors.ENDC)
@@ -149,7 +153,6 @@ def evaluate(model_list, env, eval_num=100, vis=False):
 if __name__ == "__main__":
     env = gym.make('hanabi-eval', config=env_config)
 
-    
     model = model_config['algorithm'].load(model_config['model_path'])
     if model_config['model_2_path'] is None:
         model_2 = model_config['algorithm'].load(model_config['model_path'])
