@@ -10,6 +10,7 @@ from hanabi_learning_environment import pyhanabi
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
+from sb3_contrib import RecurrentPPO
 
 from utils import bcolors
 
@@ -21,9 +22,9 @@ register(
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
-    'algorithm': PPO,
-    'model_path': 'models/test.zip',
-    'model_2_path': 'models/test.zip'
+    'algorithm': RecurrentPPO,
+    'model_path': 'models/PPO_recurrent.zip',
+    'model_2_path': 'models/PPO_recurrent.zip'
 }
 env_config = {
     "colors":                   5,
@@ -97,6 +98,9 @@ def visualize(model_list):
             game, enc_type=pyhanabi.ObservationEncoderType.CANONICAL)
 
     state = game.new_initial_state()
+    
+    lstm_states = None
+    episode_start = 1
     while not state.is_terminal():
         if state.cur_player() == pyhanabi.CHANCE_PLAYER_ID:
             state.deal_random_card()
@@ -108,7 +112,9 @@ def visualize(model_list):
         #print_observation(observation)
         #print_encoded_observations(obs_encoder, state, game.num_players())
         obs = obs_encoder.encode(observation)
-        action, _state = model_list[state.cur_player()].predict(obs, deterministic=True)
+        #action, _state = model_list[state.cur_player()].predict(obs, deterministic=True)
+        action, lstm_states = model_list[state.cur_player()].predict(obs, state=lstm_states, episode_start=episode_start, deterministic=True)
+        episode_start = 0
 
         legal_moves = state.legal_moves()
         legal_moves_int = [game.get_move_uid(move) for move in legal_moves]
@@ -137,10 +143,18 @@ def evaluate(model_list, env, eval_num=100, vis=False):
     for iteration in range(eval_num):
         done = False
         obs, info = env.reset(seed=random.randint(0, 100000000))
+
+        lstm_states = None
+        episode_starts = 1
         while not done:
             player = env.unwrapped.state.cur_player()
-            action, _state = model_list[player].predict(obs, deterministic=True)
+            #action, _state = model_list[player].predict(obs, deterministic=True)
+            #obs, reward, done, _, info = env.step(action)
+
+            action, lstm_states = model_list[player].predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
             obs, reward, done, _, info = env.step(action)
+            episode_starts = done
+            
         score = env.unwrapped.state.score()
         tot_score += score
 
@@ -158,4 +172,4 @@ if __name__ == "__main__":
         model_2 = model_config['algorithm'].load(model_config['model_path'])
     else:
         model_2 = model_config['algorithm'].load(model_config['model_2_path'])
-    evaluate([model, model_2], env, eval_num=10, vis=False)
+    evaluate([model, model_2], env, eval_num=100, vis=True)

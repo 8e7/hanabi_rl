@@ -39,13 +39,9 @@ class HanabiEnvWrapper(HanabiEnv, gym.Env):
         move = int(action)
         if action not in legal_moves_int:
             move = legal_moves_int[0]
-            #reward = self.illegal_move_reward
-            #self.invalid_cnt += 1
         obs, r, done, info = super().step(move)
         reward += r
         obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
 
         truncate = False
-        #if self.invalid_cnt >= 3:
-        #    done = True
         return obs, reward, done, truncate, info
