@@ -66,6 +66,8 @@ class HanabiEvalEnv(HanabiEnv, gym.Env):
             move = legal_moves_int[0]
 
         obs, reward, done, info = super().step(move)
+        if action not in legal_moves_int:
+            info['illegal_move'] = 1
         if self.record_episodes:
             self.write_action(move)
             self.write_obs(obs)
