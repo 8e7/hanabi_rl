@@ -14,11 +14,12 @@ class ObservationEmbedding(BaseFeaturesExtractor):
         super().__init__(observation_space, features_dim)
 
         self.input_dim = observation_space.shape[0]
-        self.hidden_dim = features_dim
+        self.hidden_dim = 256
 
         self.network = nn.Sequential(
-            nn.Linear(in_features=self.input_dim, out_features=self.features_dim),
+            nn.Linear(in_features=self.input_dim, out_features=self.hidden_dim),
             nn.ReLU(),
+            nn.Linear(in_features=self.hidden_dim, out_features=self.features_dim),
         )
 
     def forward(self, observation: torch.Tensor) -> torch.Tensor:
