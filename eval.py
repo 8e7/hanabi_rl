@@ -34,7 +34,7 @@ env_config = {
     "max_information_tokens":   8,
     "max_life_tokens":          3,
     "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
-    "record_episodes":          True,
+    "record_episodes":          False,
     "episodes_file":            "./episodes/test/episodes.txt"
 }
 
