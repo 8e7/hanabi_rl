@@ -65,6 +65,7 @@ typedef struct PyHanabiObservationEncoder {
 
 /* Utility Functions. */
 void DeleteString(char* str);
+void DeleteFloat(float* ptr);
 
 /* Card functions. */
 int CardValid(pyhanabi_card_t* card);

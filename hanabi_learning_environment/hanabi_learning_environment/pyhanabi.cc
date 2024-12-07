@@ -16,6 +16,7 @@
 
 #include <cstdlib>
 #include <cstring>
+#include <cassert>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -37,6 +38,7 @@ extern "C" {
 /* Helpers. */
 
 void DeleteString(char* str) { free(str); }
+void DeleteFloat(float* ptr) { free(ptr); }
 
 /* Wrapper definitions for HanabiCard. */
 int CardValid(pyhanabi_card_t* card) { return card->color >= 0; }
@@ -858,6 +860,7 @@ float* EncodeObservation(pyhanabi_observation_encoder_t* encoder,
   for (int i = 0; i < encoding.size(); i++) {
     obs_list[i] = encoding[i];
   }
+  assert(encoding.size() == 838); 
   return obs_list;
   /*
   std::string obs_str = "";

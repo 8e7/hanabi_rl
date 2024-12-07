@@ -12,7 +12,7 @@ class HanabiEnvWrapper(HanabiEnv, gym.Env):
         super(HanabiEnvWrapper, self).__init__(config=self.config)
 
         observation_shape = super().vectorized_observation_shape()
-        self.observation_space = spaces.MultiBinary(observation_shape[0])
+        self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(observation_shape[0] + 55,), dtype=np.float64)
         self.action_space = spaces.Discrete(self.game.max_moves())
 
         self.seed()

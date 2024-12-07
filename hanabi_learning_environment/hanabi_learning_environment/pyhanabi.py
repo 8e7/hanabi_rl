@@ -40,6 +40,9 @@ else:
   def encode_ffi_string(x):
     return str(ffi.string(x), 'ascii')
 
+def encode_ffi_float(x, length):
+    return ffi.unpack(x, length)
+
 def try_cdef(header=PYHANABI_HEADER, prefixes=DEFAULT_CDEF_PREFIXES):
   """Try parsing library header file. Must be called before any pyhanabi calls.
 
@@ -967,12 +970,13 @@ class ObservationEncoder(object):
     c_encoding_list = lib.EncodeObservation(self._encoder,
                                            observation.observation())
     #encoding_string = encode_ffi_string(c_encoding_str)
-    #lib.DeleteString(c_encoding_str)
     # Canonical observations are bit strings, so it is ok to encode using a
     # string. For float or double observations, make a custom object
     #encoding = [int(x) for x in encoding_string.split(",")]
     length = 838
-    encoding = array.array("f", c_encoding_list[0:length])
+    float_array_casted = ffi.cast(f"float[{length}]", c_encoding_list)
+    encoding = list(float_array_casted)
+    lib.DeleteFloat(c_encoding_list)
     return encoding
 
 
