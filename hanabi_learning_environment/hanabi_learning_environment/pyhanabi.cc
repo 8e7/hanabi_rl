@@ -849,14 +849,11 @@ float* EncodeObservation(pyhanabi_observation_encoder_t* encoder,
   auto obs = reinterpret_cast<hanabi_learning_env::HanabiObservation*>(
       observation->observation);
   std::vector<float> encoding = obs_enc->Encode(*obs, false, std::vector<int>(), false, std::vector<int>(), std::vector<int>(), false);
-  /*
-          bool show_own_cards,
-    const std::vector<int>& order,
-    bool shuffle_color,
-    const std::vector<int>& color_permute,
-    const std::vector<int>& inv_color_permute,
-    bool hide_action);
-   */
+
+  std::vector<float> vGreedyAction = obs_enc->EncodeLastAction(
+     *obs, std::vector<int>(), false, std::vector<int>());
+  encoding.insert(encoding.end(), vGreedyAction.begin(), vGreedyAction.end());
+
   float* obs_list = (float *) malloc(encoding.size() * sizeof(float));
   for (int i = 0; i < encoding.size(); i++) {
     obs_list[i] = encoding[i];

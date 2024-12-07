@@ -37,11 +37,11 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 model_config = {
     'algorithm': PPO,
     'policy_network': 'MlpPolicy',
-    'save_path': 'models/PPO_mlp_3',
-    'run_id': 'PPO_mlp_3_retrain'
+    'save_path': 'models/PPO_new',
+    'run_id': 'PPO_new'
 }
 train_config = {
-    'num_train_envs': 80,
+    'num_train_envs': 16,
     'training_steps': 65536,
     'n_steps': 256,
     'n_steps_testing': 640,
@@ -80,7 +80,7 @@ def train(model, eval_env, retry=False):
             total_timesteps=train_config['training_steps'],
             reset_num_timesteps=False,
             #callback=WandbCallback(verbose=1),
-            log_interval=2
+            log_interval=16
         )
 
         avg_score = evaluate([model], eval_env, eval_num=30)
