@@ -16,20 +16,22 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from sb3_contrib import RecurrentPPO
 
 from network import ObservationEmbedding
-from eval import evaluate
+from eval_multi import evaluate
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--retrain', default=False)
 
 device = 'cuda' if cuda.is_available() else 'cpu'
+#device = 'cpu'
+torch.set_default_device(device)
 print(f"Using {device}")
 register(
-    id='hanabi-v0',
-    entry_point='envs:HanabiEnvWrapper',
+    id='hanabi-multi',
+    entry_point='envs:HanabiMultiTrainEnv',
 )
 register(
     id='hanabi-eval',
-    entry_point='envs:HanabiEvalEnv',
+    entry_point='envs:HanabiMultiEvalEnv',
 )
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -37,8 +39,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 model_config = {
     'algorithm': PPO,
     'policy_network': 'MlpPolicy',
-    'save_path': 'models/PPO_new',
-    'run_id': 'PPO_new'
+    'save_path': 'models/PPO_cross',
+    'run_id': 'PPO_cross'
 }
 train_config = {
     'num_train_envs': 16,
@@ -61,17 +63,18 @@ env_config = {
     "max_life_tokens":          3,
     #"max_life_tokens":          1,
     "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
-    "record_episodes": False,
-    "episodes_file": "episodes"
+    "other_paths": ['sad_models/sad_models/sad_2p_1.pthw', 'sad_models/sad_models/sad_2p_2.pthw'],
+    "other_types": ['sad', 'sad'],
+    "device": device,
 }
 
 def make_env():
-    env = gym.make('hanabi-v0', config=env_config)
+    env = gym.make('hanabi-multi', config=env_config)
     return env
 
 def train(model, eval_env, retry=False):
     if retry:
-        best_avg = evaluate([model], eval_env, eval_num=100)
+        best_avg = evaluate(model, eval_env, eval_num=100)
     else:
         best_avg = -1
     for epoch in range(train_config['n_epochs']):
@@ -83,7 +86,7 @@ def train(model, eval_env, retry=False):
             log_interval=16
         )
 
-        avg_score = evaluate([model], eval_env, eval_num=30)
+        avg_score = evaluate(model, eval_env, eval_num=30)
         approx_kl = model.logger.name_to_value['train/approx_kl']
 
         wandb.log(

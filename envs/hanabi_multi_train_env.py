@@ -8,9 +8,9 @@ import os
 import torch
 from sad_code.load_model import *
 
-class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
+class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
     '''
-    Eval the ego agent against an agent from SAD or OP.
+    Train the ego agent against an agent from SAD or OP.
 
     config keys:
         'model_path': ego agent's path (sb3 model)
@@ -23,7 +23,7 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
         self.config = config
         self.extra_dim = 128
         self.device = config['device']
-        super(HanabiMultiEvalEnv, self).__init__(config=self.config)
+        super(HanabiMultiTrainEnv, self).__init__(config=self.config)
 
         observation_shape = super().vectorized_observation_shape()
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(observation_shape[0] + 55 + self.extra_dim,), dtype=np.float64)
@@ -90,19 +90,28 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
         legal_moves = self.state.legal_moves()
         legal_moves_int = [self.game.get_move_uid(move) for move in legal_moves]
             
+        reward = 0
         move = int(action)
         if action not in legal_moves_int:
             move = legal_moves_int[0]
-
-        obs, reward, done, info = super().step(move)
-        if action not in legal_moves_int:
-            info['illegal_move'] = 1
+        obs, r, done, info = super().step(move)
+        reward += r
+        life = obs['player_observations'][obs['current_player']]['life_tokens']
+        if done and life > 0:
+            reward += 10
+        move_dict = legal_moves[legal_moves_int.index(move)].to_dict()
+        if move_dict['action_type'] == "REVEAL_COLOR" or move_dict['action_type'] == "REVEAL_RANK":
+            reward -= 0.02
+        elif move_dict['action_type'] == "PLAY":
+            reward += 0.02
+        else:
+            reward -= 0.02
 
         obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
         truncate = False
-
         # Move opponent
         if done:
-            return obs, reward, done, truncate, info
-        obs, reward, done, truncate, info_op = self.other_move(obs)
+            return self.augment_obs(obs), reward, done, truncate, info
+        obs, reward_op, done, truncate, info_op = self.other_move(obs)
+        reward += reward_op
         return self.augment_obs(obs), reward, done, truncate, info
