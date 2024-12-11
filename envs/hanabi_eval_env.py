@@ -28,7 +28,7 @@ class HanabiEvalEnv(HanabiEnv, gym.Env):
 
     def obs_vec_compress(self, vec):
         # save 0,1 vec as hex string and filled with leading zeros
-        # two player game: len(vec) = 658
+        # two player game: len(vec) = 838
         str_len = (len(vec)+3) // 4
         return hex(int("".join(str(x) for x in vec), 2))[2:].zfill(str_len)
 
@@ -66,6 +66,8 @@ class HanabiEvalEnv(HanabiEnv, gym.Env):
             move = legal_moves_int[0]
 
         obs, reward, done, info = super().step(move)
+        if action not in legal_moves_int:
+            info['illegal_move'] = 1
         if self.record_episodes:
             self.write_action(move)
             self.write_obs(obs)

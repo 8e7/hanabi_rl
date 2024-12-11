@@ -10,6 +10,7 @@ from hanabi_learning_environment import pyhanabi
 from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
+from sb3_contrib import RecurrentPPO
 
 from utils import bcolors
 
@@ -22,8 +23,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
     'algorithm': PPO,
-    'model_path': 'models/test.zip',
-    'model_2_path': 'models/test.zip'
+    'model_path': 'models/PPO_mlp_3.zip',
+    'model_2_path': 'models/PPO_mlp_3.zip'
 }
 env_config = {
     "colors":                   5,
@@ -33,7 +34,7 @@ env_config = {
     "max_information_tokens":   8,
     "max_life_tokens":          3,
     "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
-    "record_episodes":          True,
+    "record_episodes":          False,
     "episodes_file":            "./episodes/test/episodes.txt"
 }
 
@@ -91,12 +92,15 @@ def visualize(model_list):
                     i, encoder.encode(state.observation(i))))
         print("--- EndEncodedObservations ---")
 
-    game = pyhanabi.HanabiGame({"players": 2, "random_start_player": True})
+    game = pyhanabi.HanabiGame(env_config)
     print(game.parameter_string(), end="")
     obs_encoder = pyhanabi.ObservationEncoder(
             game, enc_type=pyhanabi.ObservationEncoderType.CANONICAL)
 
     state = game.new_initial_state()
+    
+    #lstm_states = None
+    #episode_start = 1
     while not state.is_terminal():
         if state.cur_player() == pyhanabi.CHANCE_PLAYER_ID:
             state.deal_random_card()
@@ -109,6 +113,8 @@ def visualize(model_list):
         #print_encoded_observations(obs_encoder, state, game.num_players())
         obs = obs_encoder.encode(observation)
         action, _state = model_list[state.cur_player()].predict(obs, deterministic=True)
+        #action, lstm_states = model_list[state.cur_player()].predict(obs, state=lstm_states, episode_start=episode_start, deterministic=True)
+        #episode_start = 0
 
         legal_moves = state.legal_moves()
         legal_moves_int = [game.get_move_uid(move) for move in legal_moves]
@@ -134,19 +140,32 @@ def evaluate(model_list, env, eval_num=100, vis=False):
         model_list.extend([model_list[-1]] * (env_config["players"] - len(model_list)))
 
     tot_score = 0
+    tot_step = 0
+    illegal_step = 0
     for iteration in range(eval_num):
         done = False
         obs, info = env.reset(seed=random.randint(0, 100000000))
+
+        #lstm_states = None
+        #episode_starts = 1
         while not done:
             player = env.unwrapped.state.cur_player()
             action, _state = model_list[player].predict(obs, deterministic=True)
             obs, reward, done, _, info = env.step(action)
+            if 'illegal_move' in info:
+                illegal_step += 1
+            tot_step += 1
+            #action, lstm_states = model_list[player].predict(obs, state=lstm_states, episode_start=episode_starts, deterministic=True)
+            #obs, reward, done, _, info = env.step(action)
+            #episode_starts = done
+            
         score = env.unwrapped.state.score()
         tot_score += score
 
     if vis:
         visualize(model_list)
     print(f"Average score: {tot_score / eval_num}")
+    print(f"Illegal step rate: {illegal_step / tot_step}")
     return tot_score / eval_num
 
 
@@ -158,4 +177,4 @@ if __name__ == "__main__":
         model_2 = model_config['algorithm'].load(model_config['model_path'])
     else:
         model_2 = model_config['algorithm'].load(model_config['model_2_path'])
-    evaluate([model, model_2], env, eval_num=10, vis=False)
+    evaluate([model, model_2], env, eval_num=100, vis=True)

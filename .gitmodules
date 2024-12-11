@@ -1,3 +1,0 @@
-[submodule "hanabi-learning-environment"]
-	path = hanabi-learning-environment
-	url = git@github.com:google-deepmind/hanabi-learning-environment.git

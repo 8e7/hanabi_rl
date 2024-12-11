@@ -39,5 +39,23 @@ def read_episode_file(file_path):
             episode_count += 1
     return sa, episode_count
     
+def read_agents_file(file_path):
+    """Reads a text file where each line is of the form "agent_path,agent_type" and splits it into two lists.
+    """
+    agent_paths = []
+    agent_types = []
 
-        
+    try:
+        with open(file_path, 'r') as file:
+            for line in file:
+                parts = line.strip().split(',')
+                if len(parts) == 2:
+                    agent_paths.append('sad_models/' + parts[0])
+                    agent_types.append(parts[1])
+                else:
+                    print(f"Skipping invalid line: {line.strip()}")
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+    return agent_paths, agent_types
+
+       
