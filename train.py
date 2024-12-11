@@ -17,7 +17,9 @@ from sb3_contrib import RecurrentPPO
 
 from network import ObservationEmbedding
 from eval_multi import evaluate
+from utils import read_agents_file
 import argparse
+import copy
 parser = argparse.ArgumentParser()
 parser.add_argument('--retrain', default=False)
 
@@ -39,11 +41,11 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 model_config = {
     'algorithm': PPO,
     'policy_network': 'MlpPolicy',
-    'save_path': 'models/PPO_cross',
-    'run_id': 'PPO_cross'
+    'save_path': 'models/test',
+    'run_id': 'test'
 }
 train_config = {
-    'num_train_envs': 16,
+    'num_train_envs': 20,
     'training_steps': 65536,
     'n_steps': 256,
     'n_steps_testing': 640,
@@ -67,10 +69,14 @@ env_config = {
     "other_types": ['sad', 'sad'],
     "device": device,
 }
-
-def make_env():
-    env = gym.make('hanabi-multi', config=env_config)
-    return env
+def make_env(agent_ids):
+    def f():
+        env_config_copy = copy.deepcopy(env_config) 
+        env_config_copy['other_paths'] = [env_config['other_paths'][i] for i in agent_ids]
+        env_config_copy['other_types'] = [env_config['other_types'][i] for i in agent_ids]
+        env = gym.make('hanabi-multi', config=env_config_copy)
+        return env
+    return f
 
 def train(model, eval_env, retry=False):
     if retry:
@@ -118,7 +124,11 @@ if __name__ == "__main__":
         settings=wandb.Settings(_disable_stats=True)
     )
 
-    train_env = SubprocVecEnv([make_env for _ in range(train_config['num_train_envs'])])
+    agent_paths, agent_types = read_agents_file('training_agents.txt')
+    env_config['other_paths'] = agent_paths
+    env_config['other_types'] = agent_types
+
+    train_env = SubprocVecEnv([make_env([2*i, 2*i+1]) for i in range(train_config['num_train_envs'])])
     eval_env = gym.make('hanabi-eval', config=env_config)
 
     policy_kwargs = dict(

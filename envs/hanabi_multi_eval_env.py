@@ -36,7 +36,7 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
             if other_type == 'sad':
                 self.other_agents.append(load_sad_model(other_path, config['device']))
             elif other_type == 'op':
-                idx = os.path.dirname(other_path)
+                idx = int(other_path[other_path.find('M')+1:other_path.find('.')])
                 self.other_agents.append(load_op_model(other_path, idx, config['device']))
             else:
                 print("Invalid model type")

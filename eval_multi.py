@@ -12,7 +12,7 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from sb3_contrib import RecurrentPPO
 
-from utils import bcolors
+from utils import bcolors, read_agents_file
 
 register(
     id='hanabi-eval-multi',
@@ -23,7 +23,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
     'algorithm': PPO,
-    'model_path': 'models/PPO_cross.zip',
+    'model_path': 'models/PPO_baseline.zip',
 }
 env_config = {
     "other_paths": ['sad_models/sad_models/sad_2p_3.pthw', 'sad_models/sad_models/sad_2p_4.pthw'],
@@ -44,7 +44,7 @@ def evaluate(model, env, eval_num=100, vis=False):
     illegal_step = 0
     for iteration in range(eval_num):
         done = False
-        obs, info = env.reset(seed=random.randint(0, 100000000))
+        obs, info = env.reset(seed=random.randint(0, 100000000), options={'start_player': iteration % 2})
 
         #lstm_states = None
         #episode_starts = 1
@@ -67,7 +67,10 @@ def evaluate(model, env, eval_num=100, vis=False):
 
 
 if __name__ == "__main__":
-    env = gym.make('hanabi-eval-multi', config=env_config)
+    agents_path, agents_type = read_agents_file('testing_agents.txt')
+    env_config['other_paths'] = agents_path
+    env_config['other_types'] = agents_type
 
+    env = gym.make('hanabi-eval-multi', config=env_config)
     model = model_config['algorithm'].load(model_config['model_path'])
-    evaluate(model, env, eval_num=100)
+    evaluate(model, env, eval_num=1000)

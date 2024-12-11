@@ -36,11 +36,13 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
             if other_type == 'sad':
                 self.other_agents.append(load_sad_model(other_path, config['device']))
             elif other_type == 'op':
-                idx = os.path.dirname(other_path)
+                idx = int(other_path[other_path.find('M')+1:other_path.find('.')])
                 self.other_agents.append(load_op_model(other_path, idx, config['device']))
             else:
                 print("Invalid model type")
         self.agents = len(self.other_agents)
+
+        self.start_player = 0
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -79,8 +81,10 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
 
         obs = super().reset()
         obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
-        if options is not None and options['start_player'] == 1:
+        # random start player
+        if self.start_player:
             obs, reward, done, truncate, info = self.other_move(obs)
+        self.start_player = (self.start_player + 1) % 2
         return self.augment_obs(obs), {}
 
     def step(self, action):
