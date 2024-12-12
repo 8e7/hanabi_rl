@@ -1,0 +1,8 @@
+op/sad/M5.pthw,op
+op/sad/M11.pthw,op
+op/sad-op/M5.pthw,op
+op/sad-op/M11.pthw,op
+op/sad-aux/M5.pthw,op
+op/sad-aux/M11.pthw,op
+op/sad-aux-op/M5.pthw,op
+op/sad-aux-op/M11.pthw,op
