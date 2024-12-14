@@ -24,7 +24,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
     'algorithm': PPO,
-    'model_path': 'models/PPO_baseline.zip',
+    'model_path': 'models/PPO_CLIP_average.zip',
 }
 env_config = {
     "other_paths": ['sad_models/sad_models/sad_2p_3.pthw', 'sad_models/sad_models/sad_2p_4.pthw'],
@@ -37,6 +37,8 @@ env_config = {
     "max_information_tokens":   8,
     "max_life_tokens":          3,
     "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
+    "baseline": False,
+    "embedding_paths": [f'test_agent_embeddings/{i}.pt' for i in range(8)],
 }
 
 def evaluate(model, env, eval_num=100, vis=False):
@@ -75,7 +77,7 @@ def evaluate(model, env, eval_num=100, vis=False):
 
 
 if __name__ == "__main__":
-    agents_path, agents_type = read_agents_file('training_agents.txt')
+    agents_path, agents_type = read_agents_file('testing_agents.txt')
     env_config['other_paths'] = agents_path
     env_config['other_types'] = agents_type
 
