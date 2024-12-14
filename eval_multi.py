@@ -13,6 +13,7 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from sb3_contrib import RecurrentPPO
 
 from utils import bcolors, read_agents_file
+import numpy as np
 
 register(
     id='hanabi-eval-multi',
@@ -42,6 +43,7 @@ def evaluate(model, env, eval_num=100, vis=False):
     tot_score = 0
     tot_step = 0
     illegal_step = 0
+    scores = {}
     for iteration in range(eval_num):
         done = False
         obs, info = env.reset(seed=random.randint(0, 100000000), options={'start_player': iteration % 2})
@@ -60,14 +62,20 @@ def evaluate(model, env, eval_num=100, vis=False):
             
         score = env.unwrapped.state.score()
         tot_score += score
+        agent_ind = env.unwrapped.other_agent_index
+        if agent_ind not in scores:
+            scores[agent_ind] = []
+        scores[agent_ind].append(score)
 
     print(f"Average score: {tot_score / eval_num}")
     print(f"Illegal step rate: {illegal_step / tot_step}")
+    for agent_ind, score in scores.items():
+        print(f"Agent {agent_ind}: {np.mean(score)}")
     return tot_score / eval_num
 
 
 if __name__ == "__main__":
-    agents_path, agents_type = read_agents_file('testing_agents.txt')
+    agents_path, agents_type = read_agents_file('training_agents.txt')
     env_config['other_paths'] = agents_path
     env_config['other_types'] = agents_type
 

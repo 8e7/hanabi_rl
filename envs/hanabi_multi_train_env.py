@@ -17,6 +17,8 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
         'other_paths': list of other agent's path (SAD/OP model)
         'other_types': list of other agent's type (either 'sad' or 'op')
         'device': either 'cpu' or 'cuda:x'
+        'baseline': If true, uses baseline method (does nothing on augment obs)
+        'embedding_paths': list of other agent's policy embedding path
     '''
     metadata = {'render_modes': ['human']}
     def __init__(self, config):
@@ -41,6 +43,18 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
             else:
                 print("Invalid model type")
         self.agents = len(self.other_agents)
+        
+        if config['baseline'] == False:
+            # load policy embeddings
+            self.policy_embeddings = []
+            self.average_embeddings = []
+            for path in config['embedding_paths']:
+                policy = torch.load(path)
+                padding_dim = self.extra_dim - policy.shape[1] 
+                policy = torch.cat([policy.cpu(), torch.zeros(1000, padding_dim).cpu()], dim=1)
+                average = policy.mean(dim=0)
+                self.average_embeddings.append(average)
+                self.policy_embeddings.append(policy) 
 
         self.start_player = 0
 
@@ -48,9 +62,12 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
     def augment_obs(self, obs):
-        '''Add policy embeddings to the vectorized observation. Currently just appends zeros.
+        '''Add policy embeddings to the vectorized observation.
         '''
-        return np.append(obs, np.zeros(self.extra_dim))
+        if self.config['baseline']:
+            return np.append(obs, np.zeros(self.extra_dim))
+        else:
+            return np.append(obs, self.other_policy_embedding)
 
     def other_move(self, obs):
         '''Let the other agent take one step.
@@ -76,8 +93,11 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
         self.seed(seed=seed)
         
         # Decide a new random agent to train against
-        self.other_agent = self.np_random.choice(self.other_agents)
+        
+        self.other_agent_index = self.np_random.integers(0, self.agents)
+        self.other_agent = self.other_agents[self.other_agent_index]
         self.other_hid = self.other_agent.get_h0(1)
+        self.other_policy_embedding = self.average_embeddings[self.other_agent_index]
 
         obs = super().reset()
         obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])

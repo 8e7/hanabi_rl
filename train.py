@@ -41,8 +41,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 model_config = {
     'algorithm': PPO,
     'policy_network': 'MlpPolicy',
-    'save_path': 'models/test',
-    'run_id': 'test'
+    'save_path': 'models/PPO_CLIP_average',
+    'run_id': 'PPO_CLIP_average'
 }
 train_config = {
     'num_train_envs': 20,
@@ -67,6 +67,8 @@ env_config = {
     "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
     "other_paths": ['sad_models/sad_models/sad_2p_1.pthw', 'sad_models/sad_models/sad_2p_2.pthw'],
     "other_types": ['sad', 'sad'],
+    "baseline": False,
+    "embedding_paths": [f'agent_embeddings/{i}.pt' for i in range(40)],
     "device": device,
 }
 def make_env(agent_ids):
@@ -74,6 +76,7 @@ def make_env(agent_ids):
         env_config_copy = copy.deepcopy(env_config) 
         env_config_copy['other_paths'] = [env_config['other_paths'][i] for i in agent_ids]
         env_config_copy['other_types'] = [env_config['other_types'][i] for i in agent_ids]
+        env_config_copy['embedding_paths'] = [env_config['embedding_paths'][i] for i in agent_ids]
         env = gym.make('hanabi-multi', config=env_config_copy)
         return env
     return f
@@ -89,7 +92,7 @@ def train(model, eval_env, retry=False):
             total_timesteps=train_config['training_steps'],
             reset_num_timesteps=False,
             #callback=WandbCallback(verbose=1),
-            log_interval=16
+            log_interval=4
         )
 
         avg_score = evaluate(model, eval_env, eval_num=30)
@@ -120,7 +123,7 @@ if __name__ == "__main__":
         project="RL_Final",
         config=train_config,
         sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
-        id=model_config["run_id"],
+        name=model_config["run_id"],
         settings=wandb.Settings(_disable_stats=True)
     )
 
