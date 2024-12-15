@@ -14,6 +14,9 @@ from sb3_contrib import RecurrentPPO
 
 from utils import bcolors, read_agents_file
 import numpy as np
+import argparse 
+parser = argparse.ArgumentParser()
+parser.add_argument('--dataset', default='train')
 
 register(
     id='hanabi-eval-multi',
@@ -24,7 +27,7 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
     'algorithm': PPO,
-    'model_path': 'models/PPO_CLIP_average.zip',
+    'model_path': 'models/PPO_CLIP_average_norm_1000.zip',
 }
 env_config = {
     "other_paths": ['sad_models/sad_models/sad_2p_3.pthw', 'sad_models/sad_models/sad_2p_4.pthw'],
@@ -38,10 +41,10 @@ env_config = {
     "max_life_tokens":          3,
     "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
     "baseline": False,
-    "embedding_paths": [f'test_agent_embeddings/{i}.pt' for i in range(8)],
+    "embedding_paths": [f'agent_embeddings/{i}.pt' for i in range(40)],
 }
 
-def evaluate(model, env, eval_num=100, vis=False):
+def evaluate(model, env, eval_num=100, vis=False, print_agents=False):
     tot_score = 0
     tot_step = 0
     illegal_step = 0
@@ -71,16 +74,23 @@ def evaluate(model, env, eval_num=100, vis=False):
 
     print(f"Average score: {tot_score / eval_num}")
     print(f"Illegal step rate: {illegal_step / tot_step}")
-    for agent_ind, score in scores.items():
-        print(f"Agent {agent_ind}: {np.mean(score)}")
+    if print_agents:
+        for agent_ind, score in sorted(scores.items()):
+            print(f"Agent {agent_ind}: {np.mean(score)}")
     return tot_score / eval_num
 
 
 if __name__ == "__main__":
-    agents_path, agents_type = read_agents_file('testing_agents.txt')
+    args = parser.parse_args()
+    if args.dataset == 'train':
+        agents_path, agents_type = read_agents_file('training_agents.txt')
+        env_config['embedding_paths'] = [f'agent_embeddings/{i}.pt' for i in range(40)]
+    elif args.dataset == 'test':
+        agents_path, agents_type = read_agents_file('testing_agents.txt')
+        env_config['embedding_paths'] = [f'test_agent_embeddings/{i}.pt' for i in range(8)]
     env_config['other_paths'] = agents_path
     env_config['other_types'] = agents_type
 
     env = gym.make('hanabi-eval-multi', config=env_config)
     model = model_config['algorithm'].load(model_config['model_path'])
-    evaluate(model, env, eval_num=1000)
+    evaluate(model, env, eval_num=1000, print_agents=True)

@@ -51,8 +51,10 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
             for path in config['embedding_paths']:
                 policy = torch.load(path)
                 padding_dim = self.extra_dim - policy.shape[1] 
-                policy = torch.cat([policy.cpu(), torch.zeros(1000, padding_dim).cpu()], dim=1)
-                average = policy.mean(dim=0)
+                entries = policy.shape[0]
+                policy = torch.cat([policy.cpu(), torch.zeros(entries, padding_dim).cpu()], dim=1)
+                average = policy.mean(dim=0) 
+                average = average / torch.norm(average)
                 self.average_embeddings.append(average)
                 self.policy_embeddings.append(policy) 
 

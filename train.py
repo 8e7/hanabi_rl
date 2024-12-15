@@ -41,8 +41,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 model_config = {
     'algorithm': PPO,
     'policy_network': 'MlpPolicy',
-    'save_path': 'models/PPO_CLIP_average',
-    'run_id': 'PPO_CLIP_average'
+    'save_path': 'models/PPO_CLIP_average_norm',
+    'run_id': 'PPO_CLIP_average_norm'
 }
 train_config = {
     'num_train_envs': 20,
@@ -116,6 +116,9 @@ def train(model, eval_env, retry=False):
             best_avg = avg_score
             print("Saving Model")
             model.save(f"{model_config['save_path']}")
+        if epoch % 100 == 99:
+            print("Saving Model")
+            model.save(f"{model_config['save_path']}_{epoch+1}")
 
 if __name__ == "__main__":
     args = parser.parse_args()
