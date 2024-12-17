@@ -15,6 +15,9 @@ from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
 from stable_baselines3.common.evaluation import evaluate_policy
 from sb3_contrib import RecurrentPPO
 
+from sb3_contrib.common.wrappers import ActionMasker
+from sb3_contrib.ppo_mask import MaskablePPO
+
 from network import ObservationEmbedding
 from eval_multi import evaluate
 from utils import read_agents_file
@@ -23,7 +26,7 @@ import copy
 parser = argparse.ArgumentParser()
 parser.add_argument('--retrain', default=False)
 
-device = 'cuda' if cuda.is_available() else 'cpu'
+device = 'cuda:1' if cuda.is_available() else 'cpu'
 #device = 'cpu'
 torch.set_default_device(device)
 print(f"Using {device}")
@@ -39,13 +42,13 @@ register(
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
-    'algorithm': PPO,
+    'algorithm': MaskablePPO,
     'policy_network': 'MlpPolicy',
-    'save_path': 'models/PPO_CLIP_average_norm',
-    'run_id': 'PPO_CLIP_average_norm'
+    'save_path': 'models/PPO_CLIP_mask',
+    'run_id': 'PPO_CLIP_mask'
 }
 train_config = {
-    'num_train_envs': 20,
+    'num_train_envs': 21,
     'training_steps': 65536,
     'n_steps': 256,
     'n_steps_testing': 640,
@@ -67,10 +70,12 @@ env_config = {
     "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
     "other_paths": ['sad_models/sad_models/sad_2p_1.pthw', 'sad_models/sad_models/sad_2p_2.pthw'],
     "other_types": ['sad', 'sad'],
-    "baseline": False,
-    "embedding_paths": [f'agent_embeddings/{i}.pt' for i in range(40)],
+    "baseline": True,
+    "embedding_paths": [f'clip_agent_embeddings/{i}.pt' for i in range(21)],
     "device": device,
 }
+def mask_fn(env):
+    return env.valid_action_mask()
 def make_env(agent_ids):
     def f():
         env_config_copy = copy.deepcopy(env_config) 
@@ -78,6 +83,7 @@ def make_env(agent_ids):
         env_config_copy['other_types'] = [env_config['other_types'][i] for i in agent_ids]
         env_config_copy['embedding_paths'] = [env_config['embedding_paths'][i] for i in agent_ids]
         env = gym.make('hanabi-multi', config=env_config_copy)
+        env = ActionMasker(env, mask_fn)
         return env
     return f
 
@@ -124,22 +130,22 @@ if __name__ == "__main__":
     args = parser.parse_args()
     run = wandb.init(
         project="RL_Final",
-        config=train_config,
-        sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
+        config=train_config, sync_tensorboard=True,  # auto-upload sb3's tensorboard metrics
         name=model_config["run_id"],
         settings=wandb.Settings(_disable_stats=True)
     )
 
-    agent_paths, agent_types = read_agents_file('training_agents.txt')
+    agent_paths, agent_types = read_agents_file('clip_training_agents.txt')
     env_config['other_paths'] = agent_paths
     env_config['other_types'] = agent_types
 
-    train_env = SubprocVecEnv([make_env([2*i, 2*i+1]) for i in range(train_config['num_train_envs'])])
+    # train_env = SubprocVecEnv([make_env([i]) for i in range(train_config['num_train_envs'])])
+    train_env = DummyVecEnv([make_env([i]) for i in range(train_config['num_train_envs'])])
     eval_env = gym.make('hanabi-eval', config=env_config)
 
     policy_kwargs = dict(
-        net_arch=dict(pi=[256, 128, 64], vf=[256, 128, 64]),
-        activation_fn=torch.nn.Tanh
+        net_arch=dict(pi=[256, 256, 256], vf=[256, 256, 256]),
+        activation_fn=torch.nn.ReLU
         #features_extractor_class=ObservationEmbedding,
         #features_extractor_kwargs=dict(features_dim=64)
     )

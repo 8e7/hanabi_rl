@@ -48,6 +48,7 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
             # load policy embeddings
             self.policy_embeddings = []
             self.average_embeddings = []
+            self.sample_n = 30
             for path in config['embedding_paths']:
                 policy = torch.load(path)
                 padding_dim = self.extra_dim - policy.shape[1] 
@@ -99,7 +100,11 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
         self.other_agent_index = self.np_random.integers(0, self.agents)
         self.other_agent = self.other_agents[self.other_agent_index]
         self.other_hid = self.other_agent.get_h0(1)
-        self.other_policy_embedding = self.average_embeddings[self.other_agent_index]
+        if not self.config['baseline']:
+            indices = torch.randint(0, self.policy_embeddings[self.other_agent_index].size(0), (self.sample_n,))
+            self.other_policy_embedding = self.policy_embeddings[self.other_agent_index][indices].mean(dim=0)
+            self.other_policy_embedding = self.other_policy_embedding / torch.norm(self.other_policy_embedding)
+            #self.other_policy_embedding = self.average_embeddings[self.other_agent_index]
 
         obs = super().reset()
         obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
@@ -141,3 +146,9 @@ class HanabiMultiTrainEnv(HanabiEnv, gym.Env):
         obs, reward_op, done, truncate, info_op = self.other_move(obs)
         reward += reward_op
         return self.augment_obs(obs), reward, done, truncate, info
+
+    def valid_action_mask(self):
+        mask = np.zeros((self.game.max_moves(),))
+        move_uid = [self.game.get_move_uid(move) for move in self.state.legal_moves()]
+        mask[move_uid] = 1
+        return mask

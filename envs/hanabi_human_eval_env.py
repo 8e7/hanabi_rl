@@ -7,8 +7,9 @@ import numpy as np
 import os
 import torch
 from sad_code.load_model import *
+import ipdb
 
-class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
+class HanabiHumanEvalEnv(HanabiEnv, gym.Env):
     '''
     Eval the ego agent against an agent from SAD or OP.
 
@@ -23,13 +24,12 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
         self.config = config
         self.extra_dim = 128
         self.device = config['device']
-        super(HanabiMultiEvalEnv, self).__init__(config=self.config)
+        super(HanabiHumanEvalEnv, self).__init__(config=self.config)
 
         observation_shape = super().vectorized_observation_shape()
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=(observation_shape[0] + 55 + self.extra_dim,), dtype=np.float64)
         self.action_space = spaces.Discrete(self.game.max_moves())
         self.action_num = self.game.max_moves()
-
         self.seed()
         self.other_agents = []
         for other_path, other_type in zip(config['other_paths'], config['other_types']):
@@ -38,6 +38,8 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
             elif other_type == 'op':
                 idx = int(other_path[other_path.find('M')+1:other_path.find('.')])
                 self.other_agents.append(load_op_model(other_path, idx, config['device']))
+            elif other_type == 'human':
+                self.other_agents.append('')
             else:
                 print("Invalid model type")
         self.agents = len(self.other_agents)
@@ -46,12 +48,10 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
             # load policy embeddings
             self.policy_embeddings = []
             self.average_embeddings = []
-            self.sample_n = 30
             for path in config['embedding_paths']:
                 policy = torch.load(path)
                 padding_dim = self.extra_dim - policy.shape[1] 
-                entries = policy.shape[0]
-                policy = torch.cat([policy.cpu(), torch.zeros(entries, padding_dim).cpu()], dim=1)
+                policy = torch.cat([policy.cpu(), torch.zeros(1000, padding_dim).cpu()], dim=1)
                 average = policy.mean(dim=0)
                 average = average / torch.norm(average)
                 self.average_embeddings.append(average)
@@ -71,19 +71,35 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
     def other_move(self, obs):
         '''Let the other agent take one step.
         '''
-        legal_moves = np.zeros(self.action_num+1, dtype=int)
-        legal_moves_int = [self.game.get_move_uid(move) for move in self.state.legal_moves()]
-        legal_moves[legal_moves_int] = 1
-        obs_tensor = torch.from_numpy(obs).float().view((1, 838)).to(self.device)
-        legal_moves = torch.from_numpy(legal_moves).to(self.device)
-        action, new_hid = self.other_agent.greedy_act(obs_tensor, legal_moves,self.other_hid)
-        self.other_hid = new_hid
-        action = action.item()
+        action_type = input('action_type: ').upper()
+        card_index = None
+        color = None
+        rank = None
+        target_offset = None
+
+        if action_type == 'PLAY':
+            card_index = int(input('card_index: '))
+        elif action_type == 'DISCARD':
+            card_index = int(input('card_index: '))
+        elif action_type == 'REVEAL_COLOR':
+            color = input('color: ').upper()    
+            target_offset = int(input('target_offset: '))     
+        elif action_type == 'REVEAL_RANK':
+            rank = input('rank: ')
+            target_offset = int(input('target_offset: '))     
+
+        action = {k: v for k, v in {
+            'action_type': action_type,
+            'card_index': card_index,
+            'color': color,
+            'rank': rank,
+            'target_offset': target_offset
+        }.items() if v is not None}
 
         obs, reward, done, info = super().step(action)
+        vectorized_obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
         truncate = False
-        obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
-        return obs, reward, done, truncate, info
+        return vectorized_obs, reward, done, truncate, info, obs
 
     def reset(self, seed=None, options=None):
         '''Resets episode.
@@ -95,17 +111,13 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
         self.other_agent_index = self.np_random.integers(0, self.agents)
         self.other_agent = self.other_agents[self.other_agent_index]
         self.other_hid = self.other_agent.get_h0(1)
-        if not self.config['baseline']:
-            #self.other_policy_embedding = self.average_embeddings[self.other_agent_index]
-            indices = torch.randint(0, self.policy_embeddings[self.other_agent_index].size(0), (self.sample_n,))
-            self.other_policy_embedding = self.policy_embeddings[self.other_agent_index][indices].mean(dim=0)
-            self.other_policy_embedding = self.other_policy_embedding / torch.norm(self.other_policy_embedding)
+        self.other_policy_embedding = self.average_embeddings[self.other_agent_index]
 
         obs = super().reset()
-        obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
+        vectorized_obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
         if options is not None and options['start_player'] == 1:
-            obs, reward, done, truncate, info = self.other_move(obs)
-        return self.augment_obs(obs), {}
+            vectorized_obs, reward, done, truncate, info, obs = self.other_move(vectorized_obs)
+        return self.augment_obs(vectorized_obs), {}, obs
 
     def step(self, action):
         # action is a integer from 0 to self.action_space
@@ -113,7 +125,6 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
         # the legal move array may be too small in some cases, so just modulo action by the array length
         legal_moves = self.state.legal_moves()
         legal_moves_int = [self.game.get_move_uid(move) for move in legal_moves]
-        #print(mask)
             
         move = int(action)
         if action not in legal_moves_int:
@@ -123,19 +134,12 @@ class HanabiMultiEvalEnv(HanabiEnv, gym.Env):
         if action not in legal_moves_int:
             info['illegal_move'] = 1
 
-        obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
+        vectorized_obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
         truncate = False
 
         # Move opponent
         if done:
-            return obs, reward, done, truncate, info
-        obs, reward, done, truncate, info_op = self.other_move(obs)
-        return self.augment_obs(obs), reward, done, truncate, info
-
-    def valid_action_mask(self):
-        mask = np.zeros((self.game.max_moves(),))
-        move_uid = [self.game.get_move_uid(move) for move in self.state.legal_moves()]
-        mask[move_uid] = 1
-        return mask
-
-
+            return vectorized_obs, reward, done, truncate, info, obs
+        obs, reward, done, truncate, info_op = self.other_move(vectorized_obs)
+        vectorized_obs = np.array(obs['player_observations'][obs['current_player']]['vectorized'])
+        return self.augment_obs(vectorized_obs), reward, done, truncate, info, obs

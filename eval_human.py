@@ -14,20 +14,18 @@ from sb3_contrib import RecurrentPPO
 
 from utils import bcolors, read_agents_file
 import numpy as np
-import argparse 
-parser = argparse.ArgumentParser()
-parser.add_argument('--dataset', default='train')
+import ipdb
 
 register(
-    id='hanabi-eval-multi',
-    entry_point='envs:HanabiMultiEvalEnv',
+    id='hanabi-eval-human',
+    entry_point='envs:HanabiHumanEvalEnv',
 )
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
     'algorithm': PPO,
-    'model_path': 'models/PPO_CLIP_sample_800.zip',
+    'model_path': 'models/PPO_CLIP_average_norm.zip',
 }
 env_config = {
     "other_paths": ['sad_models/sad_models/sad_2p_3.pthw', 'sad_models/sad_models/sad_2p_4.pthw'],
@@ -40,24 +38,29 @@ env_config = {
     "max_information_tokens":   8,
     "max_life_tokens":          3,
     "observation_type":         pyhanabi.AgentObservationType.CARD_KNOWLEDGE.value,
-    "baseline": True,
-    "embedding_paths": [f'agent_embeddings/{i}.pt' for i in range(21)],
+    "baseline": False,
+    "embedding_paths": [f'agent_embeddings/{i}.pt' for i in range(40)],
 }
 
-def evaluate(model, env, eval_num=100, vis=False, print_agents=False):
+game_setting = [
+    [[{'color': None, 'rank': -1}, {'color': None, 'rank': -1}, {'color': None, 'rank': -1}, {'color': None, 'rank': -1}, {'color': None, 'rank': -1}], [{'color': 'Y', 'rank': 0}, {'color': 'Y', 'rank': 0}, {'color': 'R', 'rank': 1}, {'color': 'G', 'rank': 3}, {'color': 'B', 'rank': 1}]],
+    [[{'color': None, 'rank': -1}, {'color': None, 'rank': -1}, {'color': None, 'rank': -1}, {'color': None, 'rank': -1}, {'color': None, 'rank': -1}], [{'color': 'R', 'rank': 0}, {'color': 'W', 'rank': 2}, {'color': 'R', 'rank': 2}, {'color': 'R', 'rank': 0}, {'color': 'Y', 'rank': 1}]]
+]
+
+def evaluate(model, env, eval_num=100, vis=False):
     tot_score = 0
     tot_step = 0
     illegal_step = 0
     scores = {}
     for iteration in range(eval_num):
         done = False
-        obs, info = env.reset(seed=random.randint(0, 100000000), options={'start_player': iteration % 2})
-
+        vectorized_obs, info, obs = env.reset(seed=random.randint(0, 100000000), options={'start_player': iteration % 2})
         #lstm_states = None
         #episode_starts = 1
         while not done:
-            action, _state = model.predict(obs, deterministic=True, action_masks=env.valid_action_mask())
-            obs, reward, done, _, info = env.step(action)
+            action, _state = model.predict(vectorized_obs, deterministic=True)
+            print(action)
+            vectorized_obs, reward, done, _, info, obs = env.step(action)
             if 'illegal_move' in info:
                 illegal_step += 1
             tot_step += 1
@@ -74,23 +77,16 @@ def evaluate(model, env, eval_num=100, vis=False, print_agents=False):
 
     print(f"Average score: {tot_score / eval_num}")
     print(f"Illegal step rate: {illegal_step / tot_step}")
-    if print_agents:
-        for agent_ind, score in sorted(scores.items()):
-            print(f"Agent {agent_ind}: {np.mean(score)}")
+    for agent_ind, score in scores.items():
+        print(f"Agent {agent_ind}: {np.mean(score)}")
     return tot_score / eval_num
 
 
 if __name__ == "__main__":
-    args = parser.parse_args()
-    if args.dataset == 'train':
-        agents_path, agents_type = read_agents_file('clip_training_agents.txt')
-        env_config['embedding_paths'] = [f'clip_agent_embeddings/{i}.pt' for i in range(21)]
-    elif args.dataset == 'test':
-        agents_path, agents_type = read_agents_file('clip_testing_agents.txt')
-        env_config['embedding_paths'] = [f'clip_test_agent_embeddings/{i}.pt' for i in range(4)]
+    agents_path, agents_type = read_agents_file('training_agents.txt')
     env_config['other_paths'] = agents_path
     env_config['other_types'] = agents_type
 
-    env = gym.make('hanabi-eval-multi', config=env_config)
+    env = gym.make('hanabi-eval-human', config=env_config)
     model = model_config['algorithm'].load(model_config['model_path'])
-    evaluate(model, env, eval_num=1000, print_agents=True)
+    evaluate(model, env, eval_num=1)

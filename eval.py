@@ -23,8 +23,8 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 model_config = {
     'algorithm': PPO,
-    'model_path': 'models/PPO_mlp_3.zip',
-    'model_2_path': 'models/PPO_mlp_3.zip'
+    'model_path': 'models/PPO_CLIP_sample_800.zip',
+    'model_2_path': 'models/PPO_CLIP_sample_800.zip'
 }
 env_config = {
     "colors":                   5,

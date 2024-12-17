@@ -2,3 +2,4 @@ from envs.hanabi_env import HanabiEnvWrapper
 from envs.hanabi_eval_env import HanabiEvalEnv
 from envs.hanabi_multi_eval_env import HanabiMultiEvalEnv
 from envs.hanabi_multi_train_env import HanabiMultiTrainEnv
+from envs.hanabi_human_eval_env import HanabiHumanEvalEnv
